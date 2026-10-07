@@ -19,8 +19,8 @@ VALID_API_KEYS = {
     "Anurag"  # don't change warna api or bot dono nhi chalega 
 }
 
-# 🔢 Like limit tracking
-daily_limit = 20
+# 🔢 ترفع الحد اليومي لواجهة موقعك لتستوعب الأعداد الضخمة للـ لفل 30
+daily_limit = 5000
 used_count = 0
 
 
@@ -87,6 +87,7 @@ async def send_request(encrypted_uid, token, url):
         return None
 
 
+# 🔥 تعديل ميكانيكية ضخ الطاقة القصوى للحسابات (Multi-Token Packet Loop Exploit)
 async def send_multiple_requests(uid, region, url):
     try:
         protobuf_message = create_protobuf_message(uid, region)
@@ -98,10 +99,15 @@ async def send_multiple_requests(uid, region, url):
         tokens = load_tokens(region)
         if tokens is None:
             return None
+            
         tasks = []
-        for i in range(100):
-            token = tokens[i % len(tokens)]["token"]
-            tasks.append(send_request(encrypted_uid, token, url))
+        # الكود يمر على كل الحسابات (التوكنات) الموجودة بالملف دون استثناء
+        for item in tokens:
+            token = item["token"]
+            # يرسل 35 طلباً فائق السرعة ومتزامناً من نفس الحساب لسحب مخزونه بالكامل فورا
+            for _ in range(35):
+                tasks.append(send_request(encrypted_uid, token, url))
+                
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return results
     except Exception as e:
@@ -162,7 +168,7 @@ def make_request(encrypt, region, token):
 
 @app.route('/like', methods=['GET'])
 def handle_requests():
-    global used_count  # ✅ fix added
+    global used_count
 
     # ✅ API key check
     api_key = request.args.get("key")
@@ -184,7 +190,7 @@ def handle_requests():
 
     try:
         def process_request():
-            global used_count  # ✅ fix added again (for nested function)
+            global used_count
 
             tokens = load_tokens(region)
             if not tokens:
@@ -214,9 +220,9 @@ def handle_requests():
             like_given = after_like - before_like
             status = 1 if like_given > 0 else 2
 
-            # ✅ Count only when successful (status == 1)
+            # ✅ جعل العداد يحسب كمية اللايكات الفعلية المستهلكة بدقة بدلاً من حساب عدد الضغطات
             if status == 1:
-                used_count += 1
+                used_count += like_given
 
             remaining = max(daily_limit - used_count, 0)
 
@@ -250,7 +256,7 @@ def handle_requests():
 # 🆕 /remain endpoint
 @app.route('/remain', methods=['GET'])
 def remain_info():
-    global used_count  # ✅ fix added
+    global used_count
 
     remaining = max(daily_limit - used_count, 0)
     data = {
@@ -261,6 +267,6 @@ def remain_info():
     }
     return jsonify(data)
 
-
+# 🚀 تعديل أمر التشغيل النهائي ليتوافق مع السيرفرات السحابية ويمنع أخطاء توقف Render
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=10000)
