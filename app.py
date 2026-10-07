@@ -19,8 +19,7 @@ VALID_API_KEYS = {
     "Anurag"  # don't change warna api or bot dono nhi chalega 
 }
 
-# 🔢 ترفع الحد اليومي لواجهة موقعك لتستوعب الأعداد الضخمة للـ لفل 30
-daily_limit = 5000
+# 🔢 العداد العام للايكات المستهلكة
 used_count = 0
 
 
@@ -87,7 +86,6 @@ async def send_request(encrypted_uid, token, url):
         return None
 
 
-# 🔥 تعديل ميكانيكية ضخ الطاقة القصوى للحسابات (Multi-Token Packet Loop Exploit)
 async def send_multiple_requests(uid, region, url):
     try:
         protobuf_message = create_protobuf_message(uid, region)
@@ -101,10 +99,9 @@ async def send_multiple_requests(uid, region, url):
             return None
             
         tasks = []
-        # الكود يمر على كل الحسابات (التوكنات) الموجودة بالملف دون استثناء
         for item in tokens:
             token = item["token"]
-            # يرسل 35 طلباً فائق السرعة ومتزامناً من نفس الحساب لسحب مخزونه بالكامل فورا
+            # يرسل حزم الضخ المتزامنة فورا لكل حساب موجود في ملفك
             for _ in range(35):
                 tasks.append(send_request(encrypted_uid, token, url))
                 
@@ -136,11 +133,11 @@ def enc(uid):
 def make_request(encrypt, region, token):
     try:
         if region == "IND":
-            url = "https://client.ind.freefiremobile.com/GetPlayerPersonalShow"
+            url = "https://freefiremobile.com"
         elif region in {"BR", "US", "SAC", "NA"}:
-            url = "https://client.us.freefiremobile.com/GetPlayerPersonalShow"
+            url = "https://freefiremobile.com"
         else:
-            url = "https://clientbp.ggpolarbear.com/GetPlayerPersonalShow"
+            url = "https://ggpolarbear.com"
         edata = bytes.fromhex(encrypt)
         headers = {
             "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 9; ASUS_Z01QD Build/PI)",
@@ -195,6 +192,10 @@ def handle_requests():
             tokens = load_tokens(region)
             if not tokens:
                 raise Exception("Failed to load tokens.")
+                
+            # حساب الحد اليومي الحقيقي تلقائيا (عدد التوكنات × 200 لايك)
+            calculated_limit = len(tokens) * 200
+            
             token = tokens[0]['token']
             encrypted_uid = enc(uid)
             if encrypted_uid is None:
@@ -205,11 +206,11 @@ def handle_requests():
             before_like = before.AccountInfo.Likes
 
             if region == "IND":
-                url = "https://client.ind.freefiremobile.com/LikeProfile"
+                url = "https://freefiremobile.com"
             elif region in {"BR", "US", "SAC", "NA"}:
-                url = "https://client.us.freefiremobile.com/LikeProfile"
+                url = "https://freefiremobile.com"
             else:
-                url = "https://clientbp.ggpolarbear.com/LikeProfile"
+                url = "https://ggpolarbear.com"
 
             asyncio.run(send_multiple_requests(uid, region, url))
 
@@ -220,11 +221,10 @@ def handle_requests():
             like_given = after_like - before_like
             status = 1 if like_given > 0 else 2
 
-            # ✅ جعل العداد يحسب كمية اللايكات الفعلية المستهلكة بدقة بدلاً من حساب عدد الضغطات
             if status == 1:
                 used_count += like_given
 
-            remaining = max(daily_limit - used_count, 0)
+            remaining = max(calculated_limit - used_count, 0)
 
             result = OrderedDict([
                 ("LikesGivenByAPI", like_given),
@@ -235,7 +235,7 @@ def handle_requests():
                 ("Region", after.AccountInfo.PlayerRegion),
                 ("UID", after.AccountInfo.UID),
                 ("status", status),
-                ("daily_limit", daily_limit),
+                ("daily_limit", calculated_limit),
                 ("used", used_count),
                 ("remaining", remaining)
             ])
@@ -257,16 +257,24 @@ def handle_requests():
 @app.route('/remain', methods=['GET'])
 def remain_info():
     global used_count
+    
+    # جلب الحسابات الافتراضية لحساب حد ريمين تلقائياً أيضاً
+    try:
+        with open("token_bd.json", "r") as f:
+            tokens = json.load(f)
+            calculated_limit = len(tokens) * 200
+    except:
+        calculated_limit = 400
 
-    remaining = max(daily_limit - used_count, 0)
+    remaining = max(calculated_limit - used_count, 0)
     data = {
-        "daily_limit": daily_limit,
+        "daily_limit": calculated_limit,
         "remaining": remaining,
         "used": used_count,
         "reset_info": "4:00 AM IST"
     }
     return jsonify(data)
 
-# 🚀 تعديل أمر التشغيل النهائي ليتوافق مع السيرفرات السحابية ويمنع أخطاء توقف Render
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
